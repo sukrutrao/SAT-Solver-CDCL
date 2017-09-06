@@ -226,7 +226,21 @@ bool SATSolverCDCL::epsilon(int z1, int z2)
     return false;
 }
 
-int SATSolverCDCL::decision_level(int literal)
+bool SATSolverCDCL::xi(int clause, int literal, int decision_level)
+{
+    if(literal_clause_matrix[clause][literal] != -1 && literal_decision_level[literal] == decision_level && literal_antecedent[literal] != -1)
+    {
+        return true;
+    }
+    return false;
+}
+
+vector<int> SATSolverCDCL::resolve(int c1, int c2)
+{
+    
+}
+
+int SATSolverCDCL::get_decision_level(int literal)
 {
     int current_max = 0;
     int antecedent = literal_antecedent[literal];
@@ -261,25 +275,44 @@ int SATSolverCDCL::pick_branching_variable()
 
 int SATSolverCDCL::unit_propagate()
 {
-    for(int i = 0; i < clause_count; i++)
+    bool unit_clause_found = false;
+    bool restart_unit_search = false;
+    do 
     {
-        if(clause_states[i] == CState::unit)
+        for(int i = 0; i < clause_count && !restart_unit_search; i++)
         {
-            for(int j = 0; j < literal_list_per_clause[i].size(); j++)
+            if(clause_states[i] == CState::unit) // if a unit clause is found
             {
-                if(literals[literal_list_per_clause[i][j]/2] == -1)
+                unit_clause_found = true;
+                for(int j = 0; j < literal_list_per_clause[i].size(); j++)
                 {
-                    int literal_here = literal_list_per_clause[i][j]/2;
-                    literal_antecedent[literal_here] = i;
-                    literal_decision_level[literal_here] = decision_level(literal_here);
-                    if(literal_list_per_clause[i][j]%2 == 0)
+                    if(literals[literal_list_per_clause[i][j]/2] == -1) // unassigned variable found
                     {
-                        
+                        int literal_here = literal_list_per_clause[i][j]/2; // variable index
+                        literal_antecedent[literal_here] = i; // antecedent is this clause
+                        literal_decision_level[literal_here] = get_decision_level(literal_here); // find decision level
+                        // graph edges ??? TODO
+                        if(literal_list_per_clause[i][j]%2 == 0) // if positive polarity
+                        {
+                            literals[literal_here] = 1; // assign positive
+                        }
+                        else 
+                        {
+                            literals[literal_here] = 0; // assign negative
+                        }
+                        int result_transform = apply_transform(literal_here); // apply transform
+                        if(result_transform == RetVal::satisfied || result_transform == RetVal::unsatisfied)
+                        {
+                            return result;
+                        }
+                        restart_unit_search = true;
+                        break;
                     }
                 }
             }
-        }
-    }
+        }    
+    }while(unit_clause_found);
+    return RetVal::normal;
 }
 
 int SATSolverCDCL::apply_transform(int literal_to_apply)
@@ -334,7 +367,7 @@ void SATSolverCDCL::show_result(int result)
             }
             if(literals[i] != -1)
             {
-                cout<<pow(-1,f.literals[i])*(i+1);
+                cout<<pow(-1,literals[i])*(i+1);
             }
             else // for literals which can take either value, arbitrarily assign them to be true
             {
