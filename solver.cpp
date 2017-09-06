@@ -23,7 +23,6 @@ iota of z1 and z2 - antecedent of z2, when there is an edge between z1 and z2
 #include <cmath>
 #include <algorithm>
 #include <vector>
-#include <utility>
 
 using namespace std;
 
@@ -48,6 +47,7 @@ class SATSolverCDCL
     public:
         vector<int> literals;
         vector<int> literal_frequency;
+        vector<int> original_literal_frequency;
         vector<int> literal_polarity;
         vector< vector<int> > literal_clause_matrix;
         vector< vector<int> > clause_list_per_literal;
@@ -63,6 +63,9 @@ class SATSolverCDCL
         int clause_count;
         int learned_clause_count;
         int assigned_literal_count;
+        int current_decision_level;
+        bool already_unsatisfied;
+        int kappa;
         SATSolverCDCL() {}
         void initialize();
         int unit_propagate();
@@ -96,6 +99,9 @@ void SATSolverCDCL::initialize()
     clause_count = original_clause_count;
     learned_clause_count = 0;
     assigned_literal_count = 0;
+    current_decision_level = -1;
+    already_unsatisfied = false;
+    kappa = literal_count;
     // set the vectors to their appropriate sizes and initial values
     literals.clear();
     literals.resize(literal_count,-1);
@@ -116,7 +122,7 @@ void SATSolverCDCL::initialize()
     clause_states.clear();
     clause_states.resize(clause_count,CState::unresolved);
     literal_antecedent.clear();
-    literal_antecedent.resize(literal_count,-1);
+    literal_antecedent.resize(literal_count+1,-1); // for kappa
     literal_decision_level.clear();
     literal_decision_level.resize(literal_count,-1);
     implication_graph.clear();
@@ -153,14 +159,19 @@ void SATSolverCDCL::initialize()
             {
                 if(literal_count == 1)
                 {
-                    
+                    clauses_reference_second[i] = 0;
+                    clause_states[i] = CState::unit;
+                }
+                else if(literal_count == 0)
+                {
+                    already_unsatisfied = true;
                 }
                 break; // read 0, so move to next clause
             }    
             literal_count++;
         }       
     }
-    
+    original_literal_frequency = literal_frequency; // backup for restoring when backtracking
 }
 
 bool SATSolverCDCL::lambda(int literal, int clause)
@@ -198,6 +209,41 @@ bool SATSolverCDCL::mu1(int literal, int clause)
     return false;
 }
 
+bool SATSolverCDCL::epsilon(int z1, int z2)
+{
+    if(z2 == kappa && lambda(z1,literal_antecedent(kappa)))
+    {
+        return true;
+    }
+    if(z2 != kappa)
+    {
+        int omega = literal_antecedent(z2);
+        if(mu0(z1,omega) && mu1(z2,omega))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+int SATSolverCDCL::decision_level(int literal)
+{
+    int current_max = 0;
+    int antecedent = literal_antecedent[literal];
+    if(antecedent == -1)
+    {
+        return current_max;
+    }
+    for(int i = 0; i < literal_list_per_clause[antecedent].size(); i++)
+    {
+        if(literal_list_per_clause[antecedent][i] != literal && literal_decision_level[i] > current_max)
+        {
+            current_max = literal_decision_level[i];
+        }
+    }
+    return current_max;
+}
+
 bool SATSolverCDCL::all_variables_assigned()
 {
     return assigned_literal_count == literal_count;
@@ -215,8 +261,91 @@ int SATSolverCDCL::pick_branching_variable()
 
 int SATSolverCDCL::unit_propagate()
 {
+    for(int i = 0; i < clause_count; i++)
+    {
+        if(clause_states[i] == CState::unit)
+        {
+            for(int j = 0; j < literal_list_per_clause[i].size(); j++)
+            {
+                if(literals[literal_list_per_clause[i][j]/2] == -1)
+                {
+                    int literal_here = literal_list_per_clause[i][j]/2;
+                    literal_antecedent[literal_here] = i;
+                    literal_decision_level[literal_here] = decision_level(literal_here);
+                    if(literal_list_per_clause[i][j]%2 == 0)
+                    {
+                        
+                    }
+                }
+            }
+        }
+    }
+}
+
+int SATSolverCDCL::apply_transform(int literal_to_apply)
+{
     
 }
 
+int SATSolverCDCL::CDCL()
+{
+    if(already_unsatisfied)
+    {
+        show_result(RetVal::unsatisfied);
+        return RetVal::completed;
+    }
+    if(unit_propagate() == RetVal::unsatisfied)
+    {
+        show_result(RetVal::unsatisfied);
+        return RetVal::completed;
+    }
+    current_decision_level = 0;
+    while(!all_variables_assigned())
+    {
+        int current_literal = pick_branching_variable;
+        current_decision_level++;
+        // assign and also set decision level, maybe antecedent
+        if(unit_propagate() == RetVal::unsatisfied)
+        {
+            int beta = conflict_analysis();
+            if(beta < 0)
+            {
+                show_result(RetVal::unsatisfied);
+                return RetVal::completed;
+            }
+            backtrack(beta);
+            current_decision_level = beta;
+        }
+    }
+    show_result(RetVal::satisfied);
+    return RetVal::completed;
+}
+
+void SATSolverCDCL::show_result(int result)
+{
+    if(result == RetVal::satisfied) // if the formula is satisfiable
+    {
+        cout<<"SAT"<<endl;
+        for(int i = 0; i < literals.size(); i++)
+        {
+            if(i != 0)
+            {
+                cout<<" ";
+            }
+            if(literals[i] != -1)
+            {
+                cout<<pow(-1,f.literals[i])*(i+1);
+            }
+            else // for literals which can take either value, arbitrarily assign them to be true
+            {
+                cout<<(i+1);
+            }
+        }
+    }
+    else // if the formula is unsatisfiable
+    {
+        cout<<"UNSAT";
+    }
+}
 
 
