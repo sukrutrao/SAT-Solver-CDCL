@@ -74,6 +74,17 @@ class SATSolverCDCL
         bool mu1(int,int);
         bool all_variables_assigned();
         int pick_branching_variable();
+        bool epsilon(int,int);
+        bool xi(int,int,int);
+        vector<int> resolve(vector<int>,int);
+        vector<int> get_learned_clause(int);
+        int get_decision_level(int);
+        void unassign_literal(int);
+        int apply_transform(int);
+        int get_clause_state(int);
+        int CDCL();
+        int conflict_analysis_and_backtrack();
+        void show_result(int);
 };
 
 void SATSolverCDCL::initialize()
@@ -124,7 +135,7 @@ void SATSolverCDCL::initialize()
     literal_antecedent.clear();
     literal_antecedent.resize(literal_count+1,-1); // for kappa
     literal_decision_level.clear();
-    literal_decision_level.resize(literal_count,-1);
+    literal_decision_level.resize(literal_count+1,-1); // we will set the decision level of kappa as the level of conflict
     implication_graph.clear();
     implication_graph.resize(literal_count);
     
@@ -235,9 +246,58 @@ bool SATSolverCDCL::xi(int clause, int literal, int decision_level)
     return false;
 }
 
-vector<int> SATSolverCDCL::resolve(int c1, int c2)
+vector<int> SATSolverCDCL::resolve(vector<int> clause, int antecedent_of_l)
 {
-    
+    vector<int> first = clause;
+    vector<int> second = literal_list_per_clause[literal_antecedent[antecedent_of_l]];
+    vector<int> result;
+    result.clear();
+    result.insert(result.end(),first.begin(),first.end());
+    result.insert(result.end(),second.begin(),second.end());
+    int count = 0;
+    for(int i = 0; i < result.size(); i++)
+    {
+        if(result[i]/2 == antecedent_of_l)
+        {
+            result.erase(result.begin()+i);
+            i--;
+            count++;
+        }
+    }
+    if(count != 2)
+    {
+        cout<<"Error!"<<endl;
+    }
+    unassign_literal(antecedent_of_l);
+    return result;
+}
+
+vector<int> SATSolverCDCL::get_learned_clause(int decision_level)
+{
+    vector<int> current_clause = literal_list_per_clause[literal_antecedent[kappa]]; // TODO check this exists
+    vector<int> next_clause;
+    int count = 0;
+    do
+    {
+        count = 0;
+        for(int i = 0; i < current_clause.size(); i++)
+        {
+            if(xi(current_clause,current_clause[i],decision_level))
+            {
+               next_clause = resolve(current_clause,literal); // TODO unassign and move watched references?
+               break;
+            }
+            else
+            {
+                count++;
+            }
+        }
+        if(count == current_clause.size())
+        {
+            return current_clause;
+        }
+        current_clause = next_clause;
+    }while(true);
 }
 
 int SATSolverCDCL::get_decision_level(int literal)
@@ -256,6 +316,13 @@ int SATSolverCDCL::get_decision_level(int literal)
         }
     }
     return current_max;
+}
+
+void SATSolverCDCL::unassign_literal(int literal)
+{
+    literals[literal] = -1;
+    literal_antecedent[literal] = -1;
+    literal_decision_level[literal] = -1;
 }
 
 bool SATSolverCDCL::all_variables_assigned()
@@ -281,7 +348,7 @@ int SATSolverCDCL::unit_propagate()
     {
         for(int i = 0; i < clause_count && !restart_unit_search; i++)
         {
-            if(clause_states[i] == CState::unit) // if a unit clause is found
+            if(get_clause_state(i) == CState::unit) // if a unit clause is found
             {
                 unit_clause_found = true;
                 for(int j = 0; j < literal_list_per_clause[i].size(); j++)
@@ -310,14 +377,56 @@ int SATSolverCDCL::unit_propagate()
                     }
                 }
             }
+            else if(get_clause_state(i) == CState::unsatisfied)
+            {
+                // TODO declare conflict?
+            }
         }    
     }while(unit_clause_found);
     return RetVal::normal;
 }
 
+// TODO - with watched literals, clauses_states make no sense - DONE
+
 int SATSolverCDCL::apply_transform(int literal_to_apply)
 {
-    
+    int value_to_apply = literals[literal_to_apply];
+    for(int i = 0; i < clause_list_per_literal; i++)
+    {
+        
+    }
+}
+
+int SATSolverCDCL::get_clause_state(int clause)
+{
+    int first_ref = literals[literal_list_per_clause[clause][clause_reference_first[clause]]];
+    int second_ref = literals[literal_list_per_clause[clause][clause_reference_second[clause]]];
+    if(mu1(first_ref,clause) || mu1(second_ref,clause)) // TODO check if correct condition
+    {
+        return CState::satisfied;
+    }
+    int false_count = 0;
+    int unset_count = 0;
+    for(int i = 0; i < literal_list_per_clause[clause].size(); i++)
+    {
+        if(literals[literal_list_per_clause[clause][i]] == 0)
+        {
+            false_count++;
+        }
+        else if(literals[literal_list_per_clause[clause][i]] == -1)
+        {
+            unset_count++;
+        }
+    }
+    if(false_count == literal_list_per_clause[clause].size()) // TODO what about references' positions?
+    {
+        return CState::unsatisfied;
+    }
+    if(unset_count == 1)
+    {
+        return CState::unit;
+    }
+    return CState::unresolved;
 }
 
 int SATSolverCDCL::CDCL()
@@ -335,23 +444,53 @@ int SATSolverCDCL::CDCL()
     current_decision_level = 0;
     while(!all_variables_assigned())
     {
-        int current_literal = pick_branching_variable;
+        int current_literal = pick_branching_variable();
         current_decision_level++;
-        // assign and also set decision level, maybe antecedent
+        // TODO assign and also set decision level, maybe antecedent
+        literals[current_literal/2] = (current_literal%2+1)%2;
+        literal_decision_level[current_literal/2] = current_decision_level;
+        literal_antecedent[current_literal/2] = -1;
         if(unit_propagate() == RetVal::unsatisfied)
         {
-            int beta = conflict_analysis();
+            int beta = conflict_analysis_and_backtrack();
             if(beta < 0)
             {
                 show_result(RetVal::unsatisfied);
                 return RetVal::completed;
             }
-            backtrack(beta);
+      //      backtrack(beta);
             current_decision_level = beta;
         }
     }
     show_result(RetVal::satisfied);
     return RetVal::completed;
+}
+
+int SATSolverCDCL::conflict_analysis_and_backtrack()
+{
+    if(literal_decision_level[kappa] == 0)
+    {
+        return -1;
+    }
+    vector<int> learnt_clause = get_learned_clause(literal_decision_level[kappa]);
+    learned_clause_count++;
+    literal_list_per_clause.push_back(learnt_clause);
+    vector<int> literal_clause_matrix_row(literal_count);
+    for(int i = 0; i < learnt_clause.size(); i++)
+    {
+        if(learnt_clause[i]%2 == 0)
+        {
+            literal_clause_matrix_row[learnt_clause[i]/2] = 0;  
+        }
+        else
+        {
+            literal_clause_matrix_row[learnt_clause[i]/2] = 1;  
+        }
+        clause_list_per_literal[learnt_clause[i]/2].push_back(clause_count);
+    }
+    literal_clause_matrix.push_back(literal_clause_matrix_row);
+    clause_count++;
+    return literal_decision_level[kappa]-1;
 }
 
 void SATSolverCDCL::show_result(int result)
