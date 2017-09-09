@@ -1,23 +1,3 @@
-/* mu_x = 0, u, 1 - one for each variable
-l^mu - one for each variable, omega^mu - one per clause, phi^mu - for whole formula
-clause states - satisfied, unsatisfied, unit, unresolved
-alpha_x - antecedent - any clause or NIL, delta_x - decision level - -1,0,1,..,size of X
-lambda - first arg variable is present in second arg clause
-mu_0 - literal z false in w
-mu_1 - literal z true in w
-edge between z1 and z2 - between every variable in antecedent of kappa and kappa
-if z1 literal is 0 in antecedent of z2 and z2 literal is 1 in antecedent of z2
-iota of z1 and z2 - antecedent of z2, when there is an edge between z1 and z2
-
-*/
-
-// vector containing literals and their assignments - three possible assignments
-// linked list referncing to each clause for every literal 
-// every clause contains reference of assignment of every literal it contains, and two pointers for pointing to watched literals - also contains clause state - one out of 4?
-// every literal contains an antecedent and decision level 
-
-// Idea - redundant matrix of clause x variable to quickly check if a variable is in a clause and with what polarity
-
 #include <iostream>
 #include <string>
 #include <cmath>
@@ -69,12 +49,10 @@ class SATSolverCDCL
         SATSolverCDCL() {}
         void initialize();
         int unit_propagate();
-        bool lambda(int,int);
         bool mu0(int,int);
         bool mu1(int,int);
         bool all_variables_assigned();
         int pick_branching_variable();
-        bool epsilon(int,int);
         bool xi(vector<int>,int,int);
         bool sigma(vector<int>,int);
         vector<int> resolve(vector<int>,int);
@@ -188,79 +166,35 @@ void SATSolverCDCL::initialize()
     cout << "Done initializing" << endl;
 }
 
-bool SATSolverCDCL::lambda(int literal, int clause)
+bool SATSolverCDCL::mu0(int literal_index_in_clause, int clause)
 {
-    if(literal_clause_matrix[clause][literal] != -1)
+    int literal_with_polarity = literal_list_per_clause[clause][literal_index_in_clause];
+    if(literal_with_polarity%2 == 0 && literals[literal_with_polarity/2] == 0)
+    {
+        return true;
+    }
+    if(literal_with_polarity%2 == 1 && literals[literal_with_polarity/2] == 1)
     {
         return true;
     }
     return false;
 }
 
-bool SATSolverCDCL::mu0(int literal, int clause)
+bool SATSolverCDCL::mu1(int literal_index_in_clause, int clause)
 {
-    cout << "L : " << literal << " C : " << clause << endl;
-    for(int i = 0; i < literal_list_per_clause[clause].size(); i++)
+    int literal_with_polarity = literal_list_per_clause[clause][literal_index_in_clause];
+ //   cout << "LWP : " << literal_with_polarity << endl;
+    if(literal_with_polarity%2 == 0 && literals[literal_with_polarity/2] == 1)
     {
-        cout << literal_list_per_clause[clause][i] << " ";
-    }
-    cout << endl;
-   // cout << "SIG? : " << literal_clause_matrix[clause][literal] << endl;
-    cout << "LC : " << literal_clause_matrix.size() << " " << literal_clause_matrix[5].size() << endl;
-    for(int i = 0; i < literal_clause_matrix.size(); i++)
-    {
-        if(literal != 8 || clause != 5)
-        {
-            break;
-        }
-        cout << "Row : " << i << " size : " << literal_clause_matrix[i].size() << endl;
-        for(int j = 0; j < literal_clause_matrix[i].size(); j++)
-        {
-            cout << literal_clause_matrix[i][j] << " ";
-        }
-        cout << endl;
-    }
-    if(literal_clause_matrix[clause][literal] == 0 && literals[literal] == 0)
-    {
+   //     cout << "First" << endl;
         return true;
     }
-    if(literal_clause_matrix[clause][literal] == 1 && literals[literal] == 1)
+    if(literal_with_polarity%2 == 1 && literals[literal_with_polarity/2] == 0)
     {
+   //     cout << "Second" << endl;
         return true;
     }
-    return false;
-}
-
-bool SATSolverCDCL::mu1(int literal, int clause)
-{
- //   cout << "In mu1" << endl;
-    if(literal_clause_matrix[clause][literal] == 0 && literals[literal] == 1)
-    {
-  //      cout << "In if" << endl;
-        return true;
-    }
-    if(literal_clause_matrix[clause][literal] == 1 && literals[literal] == 0)
-    {
-        return true;
-    }
- //   cout << "Returning from mu1" << endl;
-    return false;
-}
-
-bool SATSolverCDCL::epsilon(int z1, int z2)
-{
-    if(z2 == kappa && lambda(z1,literal_antecedent[kappa]))
-    {
-        return true;
-    }
-    if(z2 != kappa)
-    {
-        int omega = literal_antecedent[z2];
-        if(mu0(z1,omega) && mu1(z2,omega))
-        {
-            return true;
-        }
-    }
+  //  cout << "False" << endl;
     return false;
 }
 
@@ -301,11 +235,8 @@ bool SATSolverCDCL::sigma(vector<int> clause, int decision_level)
 
 vector<int> SATSolverCDCL::resolve(vector<int> clause, int antecedent_of_l)
 {
-    vector<int> first = clause;
+    vector<int> result = clause;
     vector<int> second = literal_list_per_clause[literal_antecedent[antecedent_of_l]];
-    vector<int> result;
-    result.clear();
-    result.insert(result.end(),first.begin(),first.end());
     result.insert(result.end(),second.begin(),second.end());
     cout << "Result Initial : " << endl;
     for(int i = 0; i < result.size(); i++)
@@ -358,12 +289,6 @@ vector<int> SATSolverCDCL::get_learned_clause(int decision_level)
             if(xi(current_clause,current_clause[i]/2,decision_level))
             {
                next_clause = resolve(current_clause,current_clause[i]/2); // TODO unassign and move watched references?
-             /*  cout << "Next clause : " << endl;
-               for(int i = 0; i < current_clause.size(); i++)
-                {
-                    cout << next_clause[i] << " ";
-                }
-                cout << endl;*/
                break;
             }
             else
@@ -426,7 +351,6 @@ int SATSolverCDCL::pick_branching_variable()
 int SATSolverCDCL::unit_propagate()
 {
     bool unit_clause_found = false;
-    bool restart_unit_search = true;
     cout << "State at start of unit propagation : " << endl;
     cout << "Literals : " << endl;
     for(int i = 0; i < literals.size(); i++)
@@ -437,10 +361,10 @@ int SATSolverCDCL::unit_propagate()
     do 
     {
         unit_clause_found = false;
-        restart_unit_search = false;
-        for(int i = 0; i < clause_count && !restart_unit_search; i++)
+        for(int i = 0; (i < clause_count) && !unit_clause_found; i++)
         {
  //           cout << "In for UP" << endl;
+        //    cout << "In UP I : " << i << "State : " << get_clause_state(i) << endl;
             if(get_clause_state(i) == CState::unit) // if a unit clause is found
             {
                 unit_clause_found = true;
@@ -458,7 +382,7 @@ int SATSolverCDCL::unit_propagate()
                         cout << "Literal found is : " << literal_list_per_clause[i][j]/2 << endl;
                         int literal_here = literal_list_per_clause[i][j]/2; // variable index
                         literal_antecedent[literal_here] = i; // antecedent is this clause
-                        literal_decision_level[literal_here] = get_decision_level(literal_here); //TODO or current_decision_level? // find decision level
+                        literal_decision_level[literal_here] = current_decision_level; //get_decision_level(literal_here); //TODO or current_decision_level? // find decision level
                         // graph edges ??? TODO
                         if(literal_list_per_clause[i][j]%2 == 0) // if positive polarity
                         {
@@ -470,14 +394,6 @@ int SATSolverCDCL::unit_propagate()
                         }
                         literal_frequency[literal_here] = -1;
                         assigned_literal_count++;
-        //                cout << "Applying transform" << endl;
-                        int result_transform = apply_transform(literal_here); // apply transform
-                        if(result_transform == RetVal::r_satisfied || result_transform == RetVal::r_unsatisfied)
-                        // TODO r_satisfied might be causing trouble
-                        {
-                            return result_transform;
-                        }
-                        restart_unit_search = true;
                         break;
                     }
                 }
@@ -485,9 +401,6 @@ int SATSolverCDCL::unit_propagate()
             else if(get_clause_state(i) == CState::unsatisfied)
             {
                 // TODO declare conflict?
-                cout << "Found an unsatisfied clause" << endl;
-                cout << "LC5UC : " << literal_clause_matrix[5].size() << endl;
-                cout << "Literals : " << endl;
                 for(int i = 0; i < literals.size(); i++)
                 {
                     cout << literals[i] << " " << "DL " << literal_decision_level[i] << endl;
@@ -505,61 +418,21 @@ int SATSolverCDCL::unit_propagate()
 
 // TODO - with watched literals, clauses_states make no sense - DONE
 
-int SATSolverCDCL::apply_transform(int literal_to_apply)
-{
-    return RetVal::r_normal; // nothing to do right now
-    int value_to_apply = literals[literal_to_apply];
- //   cout << "AppT : " << "LTA : " << literal_to_apply << " VTA : " << value_to_apply << " S : " << clause_list_per_literal[literal_to_apply].size() << endl;
-    for(int i = 0; i < clause_list_per_literal[literal_to_apply].size(); i++)
-    {
-  //      cout << "In for" << endl;
-        int clause = clause_list_per_literal[literal_to_apply][i];
-        int first_ref = clause_reference_first[clause];
-        int second_ref = clause_reference_second[clause];
-        int used_ref = -1;
-        int other_ref = -1;
-        if(literal_list_per_clause[clause][first_ref]/2 == literal_to_apply)
-        {
-            used_ref = first_ref;
-            other_ref = second_ref;
-        }
-        else if(literal_list_per_clause[clause][second_ref]/2 == literal_to_apply)
-        {
-            used_ref = second_ref;
-            other_ref = first_ref;
-        }
-        if(used_ref == -1)
-        {
-            continue;
-        }
-        if(mu0(literal_to_apply,clause))
-        {
-                        
-        }
-    }
-//    cout << "Returning from AppT" << endl;
-    return RetVal::r_normal;
-}
-
 int SATSolverCDCL::get_clause_state(int clause)
 {
- //   cout << "Entered gcs" << endl;
-/*    int first_ref = literal_list_per_clause[clause][clause_reference_first[clause]];
-    int second_ref = literal_list_per_clause[clause][clause_reference_second[clause]];
- //   cout << "Before mu1" << endl;
-    if(mu1(first_ref,clause) || mu1(second_ref,clause)) // TODO check if correct condition
-    // TODO seems like a problem for true, maybe iterate for this as well and ignore WL idea for now
-    {
- //       cout << "In if in gcs" << endl;       
-        return CState::satisfied;
-    } */
     int false_count = 0;
     int unset_count = 0;
+  /*  cout << "Clause is : " << endl;
+    for(int i = 0; i < literal_list_per_clause[clause].size(); i++)
+    {
+        cout << literal_list_per_clause[clause][i] << " ";
+    }
+    cout << endl;*/
 //    cout << "Before for" << endl;
     for(int i = 0; i < literal_list_per_clause[clause].size(); i++)
     {
    //     cout << "i : " << i << " LLPC : " << literal_list_per_clause[clause][i] << " LI : " << literals[literal_list_per_clause[clause][i]] << endl;
-        if(mu0(literal_list_per_clause[clause][i]/2,clause))
+        if(mu0(i,clause))
         {
             false_count++;
         }
@@ -568,7 +441,7 @@ int SATSolverCDCL::get_clause_state(int clause)
    //         cout << "Unset incremented" << endl;
             unset_count++;
         }
-        else if(mu1(literal_list_per_clause[clause][i]/2,clause))
+        else if(mu1(i,clause))
         {
             return CState::satisfied;
         }
@@ -604,7 +477,6 @@ int SATSolverCDCL::CDCL()
     {  
         int current_literal = pick_branching_variable();
         current_decision_level++;
-        // TODO assign and also set decision level, maybe antecedent
         literals[current_literal/2] = (current_literal%2+1)%2;
         literal_decision_level[current_literal/2] = current_decision_level;
         literal_antecedent[current_literal/2] = -1;
@@ -613,13 +485,15 @@ int SATSolverCDCL::CDCL()
         if(unit_propagate() == RetVal::r_unsatisfied)
         {
             int beta = conflict_analysis_and_backtrack();
+            cout << "Beta : " << beta << endl;
             if(beta < 0)
             {
+                cout << "Got top level conflict by beta" << endl;
                 show_result(RetVal::r_unsatisfied);
                 return RetVal::r_completed;
             }
       //      backtrack(beta);
-            current_decision_level = beta;
+       //     current_decision_level = beta;
         }
     }
     show_result(RetVal::r_satisfied);
@@ -629,14 +503,13 @@ int SATSolverCDCL::CDCL()
 // TODO change frequency when learning - seems done
 int SATSolverCDCL::conflict_analysis_and_backtrack()
 {
-    cout << "LC5CA : " << literal_clause_matrix[5].size() << endl;
-    cout << "Doing conflict analysis" << endl;
     if(literal_decision_level[kappa] == 0)
     {
+        cout << "Kappa decision level is 0" << endl;
         return -1;
     }
     vector<int> learnt_clause = get_learned_clause(literal_decision_level[kappa]);
-    cout << "Learned clause : " << endl;
+ //   cout << "Learned clause : " << endl;
     for(int i = 0; i < learnt_clause.size(); i++)
     {
         cout << learnt_clause[i] << " ";
@@ -644,30 +517,21 @@ int SATSolverCDCL::conflict_analysis_and_backtrack()
     cout << endl;
     learned_clause_count++;
     literal_list_per_clause.push_back(learnt_clause);
-    vector<int> literal_clause_matrix_row;
-    literal_clause_matrix_row.resize(literal_count,-1);
-    cout << "LC5AC : " << literal_clause_matrix[5].size() << endl;
     for(int i = 0; i < learnt_clause.size(); i++)
     {
-        cout << "LC5InLoop : " << literal_clause_matrix[5].size() << endl;
         literal_frequency[learnt_clause[i]/2]++; 
         if(learnt_clause[i]%2 == 0)
         {
-            literal_clause_matrix_row[learnt_clause[i]/2] = 0; 
-            literal_polarity[learnt_clause[i]]++;
+            literal_polarity[learnt_clause[i]/2]++;
         }
         else
         {
-            literal_clause_matrix_row[learnt_clause[i]/2] = 1; 
-            literal_polarity[learnt_clause[i]]--; 
+            literal_polarity[learnt_clause[i]/2]--; 
         }
         clause_list_per_literal[learnt_clause[i]/2].push_back(clause_count);
     }
-    cout << "LC5B : " << literal_clause_matrix[5].size() << endl;
-    literal_clause_matrix.push_back(literal_clause_matrix_row);
-    cout << "LC5A : " << literal_clause_matrix[5].size() << endl;
     clause_count++;
-    int backtracked_decision_level = -1;
+    int backtracked_decision_level = 0;
     for(int i = 0; i < learnt_clause.size(); i++)
     {
         if(literal_decision_level[learnt_clause[i]] != literal_decision_level[kappa] && literal_decision_level[learnt_clause[i]] > backtracked_decision_level)
@@ -675,21 +539,28 @@ int SATSolverCDCL::conflict_analysis_and_backtrack()
             backtracked_decision_level = literal_decision_level[learnt_clause[i]];
         }
     }
+    cout << "BDL : " << backtracked_decision_level << endl;
     for(int i = 0; i < literals.size(); i++)
     {
-        if(literal_decision_level[i] >= backtracked_decision_level)
+        if(literal_decision_level[i] > backtracked_decision_level)
         {
             unassign_literal(i);
         }
     }
+    current_decision_level = backtracked_decision_level;
+    if(unit_propagate() == RetVal::r_unsatisfied)
+    {
+        
+        cout << "Got conflict again in backtrack" << endl;
+        return conflict_analysis_and_backtrack();
+    }
+    cout << "Returning backtracked decision level" << backtracked_decision_level << endl;
     return backtracked_decision_level;
 }
 
 void SATSolverCDCL::solve()
 {
-  //  cout << "Start solve()" << endl;
     CDCL();
- //   cout << "End solve()" << endl;
 }
 
 void SATSolverCDCL::show_result(int result)
@@ -705,7 +576,7 @@ void SATSolverCDCL::show_result(int result)
             }
             if(literals[i] != -1)
             {
-                cout<<pow(-1,literals[i])*(i+1);
+                cout<<pow(-1,(literals[i]+1))*(i+1);
             }
             else // for literals which can take either value, arbitrarily assign them to be true
             {
