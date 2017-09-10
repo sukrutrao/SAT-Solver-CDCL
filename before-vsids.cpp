@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <vector>
 #include <cmath>
+#include <random>
 
 using namespace std;
 
@@ -86,7 +87,7 @@ void SATSolverCDCL::initialize()
     literals.clear();
     literals.resize(literal_count,-1);
     literal_frequency.clear();
-    literal_frequency.resize(2*literal_count,0); // CHANGE
+    literal_frequency.resize(literal_count,0);
     literal_polarity.clear();
     literal_polarity.resize(literal_count,0);
     literal_list_per_clause.clear();
@@ -116,7 +117,7 @@ void SATSolverCDCL::initialize()
             {
                 literal_list_per_clause[i].push_back(literal); // store it in the form 2n+1
                 // increment frequency and decrement polarity of the literal
-                literal_frequency[literal_count-1-literal]++;
+                literal_frequency[-1-literal]++;
                 literal_polarity[-1-literal]--;
             }
             else
@@ -243,7 +244,6 @@ void SATSolverCDCL::assign_literal(int variable, int decision_level, int anteced
     literal_decision_level[literal] = decision_level;
     literal_antecedent[literal] = antecedent;
     literal_frequency[literal] = -1;
-    literal_frequency[literal_count+literal] = -1;
     assigned_literal_count++;
 }
 
@@ -253,7 +253,6 @@ void SATSolverCDCL::unassign_literal(int literal_index)
     literal_decision_level[literal_index] = -1;
     literal_antecedent[literal_index] = -1;
     literal_frequency[literal_index] = original_literal_frequency[literal_index];
-    literal_frequency[literal_count+literal_index] = original_literal_frequency[literal_count+literal_index];
     assigned_literal_count--;
 }
 
@@ -297,23 +296,11 @@ int SATSolverCDCL::conflict_analysis_and_backtrack(int decision_level)
         int literal_index = variable_to_literal_index(learnt_clause[i]);
         int update = (learnt_clause[i] > 0) ? 1 : -1;
         literal_polarity[literal_index] += update;
-        if(literal_frequency[literal_index] != -1 && update > 0)
+        if(literal_frequency[literal_index] != -1)
         {
             literal_frequency[literal_index]++;
         }
-        else if(literal_frequency[literal_count+literal_index] != -1 && update < 0)
-        {
-            literal_frequency[literal_count+literal_index]++;
-        }
-        if(update > 0)
-        {
-            original_literal_frequency[literal_index]++; 
-        }
-        else
-        {
-            original_literal_frequency[literal_count+literal_index]++; 
-        }
-               
+        original_literal_frequency[literal_index]++;        
     }
     clause_count++;
     int backtracked_decision_level = -1;
@@ -353,46 +340,63 @@ vector<int>& SATSolverCDCL::resolve(vector<int> &input_clause, int literal)
     return input_clause;
 }
 
+random_device rd;
+mt19937 rng(rd());
+
 int SATSolverCDCL::pick_branching_variable()
 {
-    pick_counter++;
-    global_pick_counter++;
-  /*  if(pick_counter == 300*literal_count)
+    
+    uniform_int_distribution<int> uid(1,10);
+    int random_val = uid(rng);
+    if(true && (random_val > 4 || assigned_literal_count < literal_count/2))
     {
-     //   cout << "Dividing now" << endl;
-        for(int i = 0; i < literal_frequency.size(); i++)
+        pick_counter++;
+        global_pick_counter++;
+        if(pick_counter == 20*literal_count)
         {
-            original_literal_frequency[i] /= 1;
-            if(literal_frequency[i] != -1)
+            for(int i = 0; i < literals.size(); i++)
             {
-                literal_frequency[i] /= 1;
+                original_literal_frequency[i] /= 2;
+                if(literal_frequency[i] != -1)
+                {
+                    literal_frequency[i] /= 2;
+                }
             }
+            pick_counter = 0;
+        } 
+        int variable = distance(literal_frequency.begin(),max_element(literal_frequency.begin(),literal_frequency.end()));
+        if(literals[variable] != -1)
+        {
+            cout << "ERROR : v : " << variable << " " << literal_frequency[variable] << endl;
+            for(int i = 0; i < literals.size(); i++)
+            {
+                cout << literals[i] << " " << literal_frequency[i] << " " << literal_decision_level[i] << literal_antecedent[i] << endl;
+            }
+            exit(0);
         }
-        pick_counter = 0;
-    } */
-    int variable = distance(literal_frequency.begin(),max_element(literal_frequency.begin(),literal_frequency.end()));
-    if(variable >= literal_count)
-    {
-        return -(variable-literal_count)-1;
+        if(literal_polarity[variable] >= 0)
+        {
+            return variable+1;
+        }
+        return -variable-1; 
     }
     else
     {
-        return variable+1;
-    }
-    if(literals[variable] != -1)
-    {
-        cout << "ERROR : v : " << variable << " " << literal_frequency[variable] << endl;
-        for(int i = 0; i < literals.size(); i++)
+        uniform_int_distribution<int> uid2(0,literal_count-1);
+        while(true)
         {
-            cout << literals[i] << " " << literal_frequency[i] << " " << literal_decision_level[i] << literal_antecedent[i] << endl;
+            int variable = uid2(rng);
+            if(literal_frequency[variable] != -1)
+            {
+                if(literal_polarity[variable] >= 0)
+                {
+                    return variable+1;
+                }
+                return -variable-1; 
+            }
         }
-        exit(0);
     }
-    if(literal_polarity[variable] >= 0)
-    {
-        return variable+1;
-    }
-    return -variable-1;
+    
 }
 
 bool SATSolverCDCL::all_variables_assigned()
