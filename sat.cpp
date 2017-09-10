@@ -270,12 +270,14 @@ vector<int> SATSolverCDCL::resolve(vector<int> clause, int antecedent_of_l)
     {
         cout << result[i] << " ";
     }
+    cout << endl;
     return result;
 }
 
 vector<int> SATSolverCDCL::get_learned_clause(int decision_level)
 {
-    int t = 0;  
+    int t = 0;
+    cout << "In glk" << endl;  
  /*   cout << "Learning clause at level : " << decision_level << endl;
     cout << "Decision levels are : ";
     for(int i = 0; i < literal_decision_level.size(); i++)
@@ -289,13 +291,22 @@ vector<int> SATSolverCDCL::get_learned_clause(int decision_level)
     do
     {
         count = 0;
+  //      cout << "In do-while" << endl;
  /*       cout << "Current clause : " << endl;
         for(int i = 0; i < current_clause.size(); i++)
         {
             cout << current_clause[i] << " ";
         }
         cout << endl;*/
-        if(sigma(current_clause,decision_level))
+        int level_count = 0;
+        for(int i = 0; i < current_clause.size(); i++)
+        {
+            if(literal_decision_level[current_clause[i]/2] == decision_level)
+            {
+                level_count++;
+            }
+        }
+        if(level_count == 1)
         {
             cout << "Sigma is true " << endl;
             if(t == 0)
@@ -307,14 +318,13 @@ vector<int> SATSolverCDCL::get_learned_clause(int decision_level)
             {
                 return current_clause;
             }
-            
         }
         for(int i = 0; i < current_clause.size(); i++)
         {
-            if(xi(current_clause,current_clause[i]/2,decision_level))
+            if(literal_decision_level[current_clause[i]/2] == decision_level && literal_antecedent[current_clause[i]/2] != -1) // can optimize this by checking other two conditions before the loop
             {
-               next_clause = resolve(current_clause,current_clause[i]/2); // TODO unassign and move watched references?
-               break;
+                current_clause = resolve(current_clause,current_clause[i]/2);
+                break;
             }
             else
             {
@@ -323,9 +333,10 @@ vector<int> SATSolverCDCL::get_learned_clause(int decision_level)
         }
     /*    if(count == current_clause.size())
         {
+            cout << "Did not find any" << endl;
             return current_clause;
         }*/
-        current_clause = next_clause;
+  //      current_clause = next_clause;
         t++;
     }while(true);
 }
