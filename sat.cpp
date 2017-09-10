@@ -58,6 +58,7 @@ class SATSolverCDCL
         vector<int> resolve(vector<int>,int);
         vector<int> get_learned_clause(int);
         int get_decision_level(int);
+        void assign_literal(int,int,int);
         void unassign_literal(int);
         int apply_transform(int);
         int get_clause_state(int);
@@ -261,33 +262,39 @@ vector<int> SATSolverCDCL::resolve(vector<int> clause, int antecedent_of_l)
     if(count != 2)
     {
         cout<<"Error!"<<endl;
+        exit(0);
     }
   //  unassign_literal(antecedent_of_l);
+    cout << "Result Final : " << endl;
+    for(int i = 0; i < result.size(); i++)
+    {
+        cout << result[i] << " ";
+    }
     return result;
 }
 
 vector<int> SATSolverCDCL::get_learned_clause(int decision_level)
 {
     int t = 0;  
-    cout << "Learning clause at level : " << decision_level << endl;
+ /*   cout << "Learning clause at level : " << decision_level << endl;
     cout << "Decision levels are : ";
     for(int i = 0; i < literal_decision_level.size(); i++)
     {
         cout << literal_decision_level[i] << " ";
     }
-    cout << endl;
+    cout << endl;*/
     vector<int> current_clause = literal_list_per_clause[literal_antecedent[kappa]]; // TODO check this exists
     vector<int> next_clause;
     int count = 0;
     do
     {
         count = 0;
-        cout << "Current clause : " << endl;
+ /*       cout << "Current clause : " << endl;
         for(int i = 0; i < current_clause.size(); i++)
         {
             cout << current_clause[i] << " ";
         }
-        cout << endl;
+        cout << endl;*/
         if(sigma(current_clause,decision_level))
         {
             cout << "Sigma is true " << endl;
@@ -314,10 +321,10 @@ vector<int> SATSolverCDCL::get_learned_clause(int decision_level)
                 count++;
             }
         }
-        if(count == current_clause.size())
+    /*    if(count == current_clause.size())
         {
             return current_clause;
-        }
+        }*/
         current_clause = next_clause;
         t++;
     }while(true);
@@ -341,6 +348,15 @@ int SATSolverCDCL::get_decision_level(int literal)
     return current_max;
 }
 
+void SATSolverCDCL::assign_literal(int literal, int decision_level, int antecedent)
+{
+    literals[literal/2] = (literal%2+1)%2;
+    literal_decision_level[literal/2] = decision_level;
+    literal_antecedent[literal/2] = antecedent;
+    literal_frequency[literal/2] = -1;
+    assigned_literal_count++;
+}
+
 void SATSolverCDCL::unassign_literal(int literal)
 {
     literals[literal] = -1;
@@ -358,6 +374,11 @@ bool SATSolverCDCL::all_variables_assigned()
 int SATSolverCDCL::pick_branching_variable()
 {
     int variable = distance(literal_frequency.begin(),max_element(literal_frequency.begin(),literal_frequency.end()));
+    if(literal_frequency[variable]<0)
+    {
+        cout << "LT0!!!!!!!!!!!!" << endl;
+        exit(0);
+    }
     if(literal_polarity[variable] >= 0)
     {
         cout << "Picked " << 2*variable << endl;
@@ -370,7 +391,7 @@ int SATSolverCDCL::pick_branching_variable()
 int SATSolverCDCL::unit_propagate()
 {
     bool unit_clause_found = false;
-    cout << "State at start of unit propagation : " << endl;
+ /*   cout << "State at start of unit propagation : " << endl;
     cout << "Literals : " << endl;
     for(int i = 0; i < literals.size(); i++)
     {
@@ -389,7 +410,7 @@ int SATSolverCDCL::unit_propagate()
             cout << endl;
             
         }
-    }
+    }*/
     do 
     {
         unit_clause_found = false;
@@ -397,21 +418,22 @@ int SATSolverCDCL::unit_propagate()
         {
  //           cout << "In for UP" << endl;
         //    cout << "In UP I : " << i << "State : " << get_clause_state(i) << endl;
-            if(get_clause_state(i) == CState::unit) // if a unit clause is found
+            int clause_state = get_clause_state(i);
+            if(clause_state == CState::unit) // if a unit clause is found
             {
                 unit_clause_found = true;
-                cout << "Found a unit clause : " << i << " clause count : " << clause_count << endl;
+      /*          cout << "Found a unit clause : " << i << " clause count : " << clause_count << endl;
                 cout << "Literals : " << endl;
                 for(int i = 0; i < literals.size(); i++)
                 {
                     cout << literals[i] << " ";
                 }
-                cout << endl;
+                cout << endl;*/
                 for(int j = 0; j < literal_list_per_clause[i].size(); j++)
                 {
                     if(literals[literal_list_per_clause[i][j]/2] == -1) // unassigned variable found
                     {
-                        cout << "Literal found is : " << literal_list_per_clause[i][j]/2 << endl;
+                //        cout << "Literal found is : " << literal_list_per_clause[i][j]/2 << endl;
                         int literal_here = literal_list_per_clause[i][j]/2; // variable index
                         literal_antecedent[literal_here] = i; // antecedent is this clause
                         literal_decision_level[literal_here] = current_decision_level; //get_decision_level(literal_here); //TODO or current_decision_level? // find decision level
@@ -426,7 +448,7 @@ int SATSolverCDCL::unit_propagate()
                         }
                         literal_frequency[literal_here] = -1;
                         assigned_literal_count++;
-                        for(int k = 0; k < clause_count; k++)
+                   /*     for(int k = 0; k < clause_count; k++)
                         {
                             if(get_clause_state(k) == CState::unsatisfied)
                             {
@@ -441,24 +463,24 @@ int SATSolverCDCL::unit_propagate()
                                 cout << "LDLK : " << literal_decision_level[kappa] << endl;
                                 return RetVal::r_unsatisfied;
                             }
-                        }
+                        }*/
                         break;
                     }
                 }
             }
-      /*      else if(get_clause_state(i) == CState::unsatisfied)
+            else if(clause_state == CState::unsatisfied)
             {
                 // TODO declare conflict?
       /*          for(int i = 0; i < literals.size(); i++)
                 {
                     cout << literals[i] << " " << "DL " << literal_decision_level[i] << endl;
                 }
-                cout << endl;
+                cout << endl;*/
                 literal_antecedent[kappa] = i;
                 literal_decision_level[kappa] = current_decision_level; //? TODO check!
                 cout << "LDLK : " << literal_decision_level[kappa] << endl;
                 return RetVal::r_unsatisfied;
-            }*/
+            }
       //      cout << "At end" << endl;
         }    
     }while(unit_clause_found);
@@ -505,11 +527,11 @@ int SATSolverCDCL::get_clause_state(int clause)
 
 int SATSolverCDCL::CDCL()
 {
-    if(already_unsatisfied)
+ /*   if(already_unsatisfied)
     {
         show_result(RetVal::r_unsatisfied);
         return RetVal::r_completed;
-    }
+    } */
     if(unit_propagate() == RetVal::r_unsatisfied)
     {
         show_result(RetVal::r_unsatisfied);
@@ -518,8 +540,8 @@ int SATSolverCDCL::CDCL()
     current_decision_level = 0;
     while(!all_variables_assigned())
     {  
-        cout << "#####################################################################################" << endl;  
-        for(int i = 0; i < clause_count; i++)
+   //     cout << "#####################################################################################" << endl;  
+  /*      for(int i = 0; i < clause_count; i++)
         {
             if(get_clause_state(i) == CState::unit)
             {
@@ -531,25 +553,35 @@ int SATSolverCDCL::CDCL()
                 cout << endl;
                 exit(0);
             }
-        }     
+        }   */  
         int current_literal = pick_branching_variable();
         current_decision_level++;
-        literals[current_literal/2] = (current_literal%2+1)%2;
+      /*  literals[current_literal/2] = (current_literal%2+1)%2;
         literal_decision_level[current_literal/2] = current_decision_level;
         literal_antecedent[current_literal/2] = -1;
         literal_frequency[current_literal/2] = -1;
-        assigned_literal_count++;
-        if(unit_propagate() == RetVal::r_unsatisfied)
+        assigned_literal_count++;*/
+        assign_literal(current_literal,current_decision_level,-1);
+        while(true)
         {
-            int beta = conflict_analysis_and_backtrack();
-            cout << "Beta : " << beta << endl;
-            if(beta < 0)
+            if(unit_propagate() == RetVal::r_unsatisfied)
             {
-                cout << "Got top level conflict by beta" << endl;
-                show_result(RetVal::r_unsatisfied);
-                return RetVal::r_completed;
+                int beta = conflict_analysis_and_backtrack();
+                cout << "Beta : " << beta << endl;
+                if(beta < 0)
+                {
+                    cout << "Got top level conflict by beta" << endl;
+                    show_result(RetVal::r_unsatisfied);
+                    return RetVal::r_completed;
+                }
+                current_decision_level = beta;
+            }
+            else
+            {
+                break;
             }
         }
+        
     }
     show_result(RetVal::r_satisfied);
     return RetVal::r_completed;
@@ -617,15 +649,15 @@ int SATSolverCDCL::conflict_analysis_and_backtrack()
             unassign_literal(i);
         }
     }
-    current_decision_level = backtracked_decision_level;
-    if(unit_propagate() == RetVal::r_unsatisfied)
+    
+ /*   if(unit_propagate() == RetVal::r_unsatisfied)
     {
         
         cout << "Got conflict again in backtrack" << endl;
    //     return -1;
         return conflict_analysis_and_backtrack();
     }
-    cout << "Returning backtracked decision level" << backtracked_decision_level << endl;
+    cout << "Returning backtracked decision level" << backtracked_decision_level << endl; */
     return backtracked_decision_level;
 }
 
