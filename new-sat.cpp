@@ -18,7 +18,7 @@ enum RetVal
     r_satisfied,
     r_unsatisfied,
     r_normal,
-    r_completed
+    r_restart
 };
 
 class SATSolverCDCL
@@ -38,6 +38,8 @@ class SATSolverCDCL
         int assigned_literal_count;
         bool already_unsatisfied;
         int pick_counter;
+        int global_pick_counter;
+        int restart_counter;
         SATSolverCDCL() {}
         void initialize();
         int CDCL();
@@ -77,6 +79,8 @@ void SATSolverCDCL::initialize()
     kappa_antecedent = -1;
     kappa_decision_level = -1;
     pick_counter = 0;
+    global_pick_counter = 0;
+    restart_counter = 0;
     already_unsatisfied = false;
     // set the vectors to their appropriate sizes and initial values
     literals.clear();
@@ -144,6 +148,12 @@ int SATSolverCDCL::CDCL()
     }
     while(!all_variables_assigned())
     {
+    /*    if(global_pick_counter == 20*literal_count && restart_counter < literal_count/20)
+        {
+            global_pick_counter = 0;
+            restart_counter++;
+            return RetVal::r_restart;
+        } */
         int picked_variable = pick_branching_variable();
         decision_level++;
         assign_literal(picked_variable,decision_level,-1);
@@ -331,8 +341,9 @@ vector<int>& SATSolverCDCL::resolve(vector<int> &input_clause, int literal)
 
 int SATSolverCDCL::pick_branching_variable()
 {
- /*   pick_counter++;
-    if(pick_counter == 2*literal_count)
+    pick_counter++;
+    global_pick_counter++;
+    if(pick_counter == 10*literal_count)
     {
         for(int i = 0; i < literals.size(); i++)
         {
@@ -343,7 +354,7 @@ int SATSolverCDCL::pick_branching_variable()
             }
         }
         pick_counter = 0;
-    } */
+    } 
     int variable = distance(literal_frequency.begin(),max_element(literal_frequency.begin(),literal_frequency.end()));
     if(literals[variable] != -1)
     {
@@ -400,6 +411,16 @@ void SATSolverCDCL::show_result(int result_status)
 void SATSolverCDCL::solve()
 {
     int result_status = CDCL();
+  /*  if(result_status == RetVal::r_restart)
+    {
+        cout << "RESTARTING : " << clause_count << endl;
+        for(int i = 0; i < literals.size(); i++)
+        {
+            unassign_literal(i);
+        }
+        solve();
+        return;
+    }*/
     show_result(result_status);
 }
 
