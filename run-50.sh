@@ -1,7 +1,7 @@
 #! /bin/bash
 
 i=1
-for file in ../SAT-Solver-DPLL/local/uf50-218/*
+for file in ../SAT-Solver-DPLL/local/uf100-430/*
 do
     echo $i
     ./a.out < $file 
