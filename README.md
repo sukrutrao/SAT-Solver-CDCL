@@ -4,45 +4,46 @@
 
 A SAT Solver based on [Conflict Driven Clause Learning (CDCL)](https://en.wikipedia.org/wiki/Conflict-Driven_Clause_Learning).
 
-### Installation
+## Installation
 
-#### Prerequisites
+### Prerequisites
 
 * g++ (or any other C++ compiler) with C++11 support
+* GNU make
 
-#### Building the project
+### Building the project
 
 * Clone the repository
 ```
-git clone https://github.com/GoodDeeds/SAT-Solver-CDCL.git
-cd SAT-Solver-CDCL
+$ git clone https://github.com/GoodDeeds/SAT-Solver-CDCL.git
+$ cd SAT-Solver-CDCL
 ```
 
 * Compile the program
 ```
-make
+$ make
 ```
 
 If you use a different compiler, please edit the Makefile accordingly.
 
-### Running the solver
+## Running the solver
 
 The solver accepts input from standard input (STDIN) and sends output to the standard output (STDOUT).
 
-#### Input format
+### Input format
 The input is a SAT formula is DIMACS format. A detailed description can be found [here](http://www.satcompetition.org/2009/format-benchmarks2009.html).
 
-#### Output format
+### Output format
 * If the formula is satisfiable, the output consists of two lines. The first line of the output is a single word, `SAT`. The second line is any satisfying assignment. It consists of space separated boolean variables in ascending order, where the variables have a negative sign if assigned false and no negative sign if assigned true. The last variable is followed by a space and then a `0`.
 * If the formula is unsatisfiable, the output consists of a single word, `UNSAT`.
 
-#### Running the solver
+### Running the solver
 If the input is in a file input.cnf, use
 ```
-./solver < input.cnf
+$ ./solver < input.cnf
 ```
 
-#### Example
+### Example
 Let the input be
 ```
 c 3 variables, 6 clauses
@@ -63,11 +64,14 @@ SAT
 
 Here, the formuls is satisfiable. Variables `1` and `3` are assigned true, and variable `2` is assigned false. This is one possible satisfying assignment.
 
-### License
+## License
 This project is licensed under the [MIT License](LICENSE).
 
-### Author
+## Author
 [Sukrut Rao](https://github.com/GoodDeeds/)
 
-For any issues or queries, please [open an issue](https://github.com/GoodDeeds/SAT-Solver-CDCL/issues/new).
-To contribute, please [send a pull request](https://github.com/GoodDeeds/SAT-Solver-CDCL/pulls).
+For any issues, queries, or suggestions, please [open an issue](https://github.com/GoodDeeds/SAT-Solver-CDCL/issues/new).
+
+---
+
+This project was created as a part of the course CS6403: Constraint Solving at IIT Hyderabad.
