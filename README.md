@@ -1,6 +1,6 @@
 # SAT-Solver-CDCL
 
-[![Build Status](https://travis-ci.com/GoodDeeds/SAT-Solver-CDCL.svg?branch=master)](https://travis-ci.com/GoodDeeds/SAT-Solver-CDCL)
+[![Build Status](https://travis-ci.com/sukrutrao/SAT-Solver-CDCL.svg?branch=master)](https://travis-ci.com/sukrutrao/SAT-Solver-CDCL)
 
 A SAT Solver based on [Conflict Driven Clause Learning (CDCL)](https://en.wikipedia.org/wiki/Conflict-Driven_Clause_Learning).
 
@@ -15,7 +15,7 @@ A SAT Solver based on [Conflict Driven Clause Learning (CDCL)](https://en.wikipe
 
 * Clone the repository
 ```
-$ git clone https://github.com/GoodDeeds/SAT-Solver-CDCL.git
+$ git clone https://github.com/sukrutrao/SAT-Solver-CDCL.git
 $ cd SAT-Solver-CDCL
 ```
 
@@ -68,9 +68,9 @@ Here, the formuls is satisfiable. Variables `1` and `3` are assigned true, and v
 This project is licensed under the [MIT License](LICENSE).
 
 ## Author
-[Sukrut Rao](https://github.com/GoodDeeds/)
+[Sukrut Rao](https://sukrutrao.github.io)
 
-For any issues, queries, or suggestions, please [open an issue](https://github.com/GoodDeeds/SAT-Solver-CDCL/issues/new).
+For any issues, queries, or suggestions, please [open an issue](https://github.com/sukrutrao/SAT-Solver-CDCL/issues/new).
 
 ---
 
